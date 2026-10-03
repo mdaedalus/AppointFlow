@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}İşlemler{% endblock %}
+{% block body %}
+<div class="app-layout">
+    {% include 'admin/_sidebar.html' %}
+    <main class="app-content">
+        <div class="page-header">
+            <h1>İşlemler</h1>
+            <button class="btn btn-primary" onclick="openAddModal()">+ Yeni İşlem</button>
+        </div>
+
+        <div class="card">
+            <table class="table" id="servicesTable">
+                <thead>
+                    <tr>
+                        <th>İşlem Adı</th>
+                        {% if business.has_pricing %}<th>Ücret</th>{% endif %}
+                        <th>Süre</th>
+                        <th style="width:140px">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in services %}
+                    <tr data-id="{{ s.id }}">
+                        <td>{{ s.name }}</td>
+                        {% if business.has_pricing %}<td>{{ s.price or 0 }} ₺</td>{% endif %}
+                        <td>{{ s.duration }} dk</td>
+                        <td>
+                            <button class="btn btn-sm" onclick="editService({{ s.id }}, '{{ s.name }}', {{ s.price or 0 }}, {{ s.duration }})">Düzenle</button>
+                            <button class="btn btn-sm danger" onclick="deleteService({{ s.id }})">Sil</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<div id="modal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="modalTitle">Yeni İşlem</h3>
+        <input type="hidden" id="serviceId">
+        <div class="form-group">
+            <label>İşlem Adı</label>
+            <input type="text" id="sName" class="input">
+        </div>
+        {% if business.has_pricing %}
+        <div class="form-group">
+            <label>Ücret (₺)</label>
+            <input type="number" id="sPrice" class="input">
+        </div>
+        {% endif %}
+        <div class="form-group">
+            <label>Süre (dk)</label>
+            <input type="number" id="sDuration" class="input" value="30">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+            <button class="btn btn-primary" onclick="saveService()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAddModal() {
+    document.getElementById('serviceId').value = '';
+    document.getElementById('sName').value = '';
+    {% if business.has_pricing %}document.getElementById('sPrice').value = '';{% endif %}
+    document.getElementById('sDuration').value = '30';
+    document.getElementById('modalTitle').textContent = 'Yeni İşlem';
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function editService(id, name, price, duration) {
+    document.getElementById('serviceId').value = id;
+    document.getElementById('sName').value = name;
+    {% if business.has_pricing %}document.getElementById('sPrice').value = price;{% endif %}
+    document.getElementById('sDuration').value = duration;
+    document.getElementById('modalTitle').textContent = 'İşlemi Düzenle';
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+async function saveService() {
+    const id = document.getElementById('serviceId').value;
+    const payload = {
+        name: document.getElementById('sName').value,
+        duration: document.getElementById('sDuration').value,
+        {% if business.has_pricing %}price: document.getElementById('sPrice').value,{% endif %}
+    };
+    if (!payload.name) { alert('İşlem adı gerekli'); return; }
+
+    const url = id ? `/admin/services/${id}` : '/admin/services/add';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+        method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) location.reload();
+}
+
+async function deleteService(id) {
+    if (!confirm('Silmek istediğinize emin misiniz?')) return;
+    const res = await fetch(`/admin/services/${id}`, {method: 'DELETE'});
+    const data = await res.json();
+    if (data.success) location.reload();
+}
+</script>
+{% endblock %}

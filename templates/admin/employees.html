@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Çalışanlar{% endblock %}
+{% block body %}
+<div class="app-layout">
+    {% include 'admin/_sidebar.html' %}
+    <main class="app-content">
+        <div class="page-header">
+            <h1>Çalışanlar</h1>
+            <button class="btn btn-primary" onclick="openAddModal()">+ Yeni Çalışan</button>
+        </div>
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Ad Soyad</th>
+                        <th>Telefon</th>
+                        <th style="width:180px">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in employees %}
+                    <tr>
+                        <td>{{ e.name }}</td>
+                        <td>{{ e.phone }}</td>
+                        <td>
+                            <button class="btn btn-sm" onclick="editEmployee({{ e.id }}, '{{ e.name }}', '{{ e.phone }}')">Düzenle</button>
+                            <button class="btn btn-sm danger" onclick="deleteEmployee({{ e.id }})">Sil</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<div id="modal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="modalTitle">Yeni Çalışan</h3>
+        <input type="hidden" id="empId">
+        <div class="form-group">
+            <label>Ad Soyad</label>
+            <input type="text" id="eName" class="input">
+        </div>
+        <div class="form-group">
+            <label>Telefon</label>
+            <input type="text" id="ePhone" class="input" placeholder="05xx xxx xx xx">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+            <button class="btn btn-primary" onclick="saveEmployee()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAddModal() {
+    document.getElementById('empId').value = '';
+    document.getElementById('eName').value = '';
+    document.getElementById('ePhone').value = '';
+    document.getElementById('modalTitle').textContent = 'Yeni Çalışan';
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function editEmployee(id, name, phone) {
+    document.getElementById('empId').value = id;
+    document.getElementById('eName').value = name;
+    document.getElementById('ePhone').value = phone;
+    document.getElementById('modalTitle').textContent = 'Çalışanı Düzenle';
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+async function saveEmployee() {
+    const id = document.getElementById('empId').value;
+    const payload = {
+        name: document.getElementById('eName').value,
+        phone: document.getElementById('ePhone').value
+    };
+    if (!payload.name || !payload.phone) { alert('Tüm alanlar gerekli'); return; }
+
+    const url = id ? `/admin/employees/${id}` : '/admin/employees/add';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+        method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) location.reload();
+}
+
+async function deleteEmployee(id) {
+    if (!confirm('Silmek istediğinize emin misiniz?')) return;
+    await fetch(`/admin/employees/${id}`, {method: 'DELETE'});
+    location.reload();
+}
+</script>
+{% endblock %}

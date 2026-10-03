@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Randevu Ver{% endblock %}
+{% block body %}
+<div class="app-layout">
+    {% include 'admin/_sidebar.html' %}
+    <main class="app-content">
+        <div class="page-header">
+            <h1>Randevu Ver</h1>
+            <button class="btn btn-primary" onclick="openNewAppointment()">+ Yeni Randevu</button>
+        </div>
+
+        <div class="card">
+            <p class="muted">Aşağıdaki takvimden bir güne tıklayarak randevu oluşturabilirsiniz.</p>
+            <div id="miniCalendar"></div>
+        </div>
+    </main>
+</div>
+
+<!-- Randevu modalı -->
+<div id="apptModal" class="modal hidden">
+    <div class="modal-content modal-lg">
+        <h3 id="apptTitle">Yeni Randevu</h3>
+        <input type="hidden" id="apptId">
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Ad Soyad</label>
+                <input type="text" id="cName" class="input">
+            </div>
+            <div class="form-group">
+                <label>Telefon</label>
+                <input type="text" id="cPhone" class="input" placeholder="05xx xxx xx xx">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>İşlem(ler) <span class="muted">(birden fazla seçilebilir)</span></label>
+            <div class="checkbox-grid">
+                {% for s in services %}
+                <label class="checkbox-card">
+                    <input type="checkbox" class="svc-check" value="{{ s.id }}" data-price="{{ s.price or 0 }}">
+                    <span>{{ s.name }}{% if s.price %} - {{ s.price }} ₺{% endif %}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Personel <span class="muted">(birden fazla seçilebilir)</span></label>
+            <div class="checkbox-grid">
+                {% for e in employees %}
+                <label class="checkbox-card">
+                    <input type="checkbox" class="emp-check" value="{{ e.id }}">
+                    <span>{{ e.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Tarih ve Saat</label>
+                <input type="datetime-local" id="apptDate" class="input">
+            </div>
+            {% if business.has_pricing %}
+            <div class="form-group">
+                <label>Toplam Ücret</label>
+                <input type="text" id="totalPrice" class="input" readonly value="0 ₺">
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label>Açıklama</label>
+            <textarea id="apptDesc" class="input" rows="3"></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeApptModal()">İptal</button>
+            <button class="btn btn-primary" onclick="saveAppointment()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- Kayıt sonrası modal -->
+<div id="postModal" class="modal hidden">
+    <div class="modal-content">
+        <h3>✓ Randevu Oluşturuldu</h3>
+        <p class="muted">Müşteriye nasıl ulaşmak istersiniz?</p>
+        <div class="modal-actions-column">
+            <a id="icsLink" class="btn btn-secondary btn-block" download>📅 Dış Takvime Ekle (.ics)</a>
+            <a id="waLink" class="btn btn-success btn-block" target="_blank">💬 WhatsApp'tan Mesaj At</a>
+            <button class="btn btn-ghost btn-block" onclick="closePostModal()">Kapat</button>
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+<script>
+let calendar;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('miniCalendar');
+    calendar = new FullCalendar.Calendar(el, {
+        initialView: 'dayGridMonth',
+        locale: 'tr',
+        headerToolbar: {left: 'prev,next today', center: 'title', right: ''},
+        dateClick: (info) => {
+            openNewAppointment();
+            document.getElementById('apptDate').value = info.dateStr + 'T10:00';
+        },
+        events: '/calendar/events'
+    });
+    calendar.render();
+
+    // Fiyat toplamı güncelle
+    document.querySelectorAll('.svc-check').forEach(cb => {
+        cb.addEventListener('change', updateTotal);
+    });
+});
+
+function updateTotal() {
+    let total = 0;
+    document.querySelectorAll('.svc-check:checked').forEach(cb => {
+        total += parseFloat(cb.dataset.price || 0);
+    });
+    const el = document.getElementById('totalPrice');
+    if (el) el.value = total.toFixed(2) + ' ₺';
+}
+
+function openNewAppointment() {
+    document.getElementById('apptId').value = '';
+    document.getElementById('cName').value = '';
+    document.getElementById('cPhone').value = '';
+    document.getElementById('apptDate').value = '';
+    document.getElementById('apptDesc').value = '';
+    document.querySelectorAll('.svc-check, .emp-check').forEach(cb => cb.checked = false);
+    updateTotal();
+    document.getElementById('apptTitle').textContent = 'Yeni Randevu';
+    document.getElementById('apptModal').classList.remove('hidden');
+}
+
+function closeApptModal() { document.getElementById('apptModal').classList.add('hidden'); }
+function closePostModal() {
+    document.getElementById('postModal').classList.add('hidden');
+    location.reload();
+}
+
+async function saveAppointment() {
+    const id = document.getElementById('apptId').value;
+    const payload = {
+        customer_name: document.getElementById('cName').value.trim(),
+        customer_phone: document.getElementById('cPhone').value.trim(),
+        appointment_date: document.getElementById('apptDate').value,
+        description: document.getElementById('apptDesc').value.trim(),
+        service_ids: [...document.querySelectorAll('.svc-check:checked')].map(cb => parseInt(cb.value)),
+        employee_ids: [...document.querySelectorAll('.emp-check:checked')].map(cb => parseInt(cb.value))
+    };
+
+    if (!payload.customer_name || !payload.customer_phone || !payload.appointment_date) {
+        alert('Zorunlu alanları doldurun'); return;
+    }
+    if (payload.service_ids.length === 0) { alert('En az bir işlem seçin'); return; }
+    if (payload.employee_ids.length === 0) { alert('En az bir personel seçin'); return; }
+
+    const url = id ? `/appointment/${id}` : '/appointment/create';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+        method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        closeApptModal();
+        if (!id) {
+            const aid = data.appointment_id;
+            document.getElementById('icsLink').href = `/appointment/${aid}/ics`;
+
+            // WhatsApp linki üret
+            const services = [...document.querySelectorAll('.svc-check:checked')]
+                .map(cb => cb.parentElement.querySelector('span').textContent.split(' - ')[0]).join(', ');
+            const msg = `Merhaba ${payload.customer_name},\n\nRandevunuz oluşturuldu.\n📅 Tarih: ${payload.appointment_date}\n✂️ İşlem: ${services}\n\nBizi tercih ettiğiniz için teşekkürler.`;
+            const cleanPhone = payload.customer_phone.replace(/\D/g, '').replace(/^0/, '90');
+            document.getElementById('waLink').href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+
+            document.getElementById('postModal').classList.remove('hidden');
+        } else {
+            location.reload();
+        }
+    } else {
+        alert(data.message || 'Hata oluştu');
+    }
+}
+</script>
+{% endblock %}

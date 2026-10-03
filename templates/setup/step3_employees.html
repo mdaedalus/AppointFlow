@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Çalışanlar - Adım 3{% endblock %}
+{% block body %}
+<div class="setup-container">
+    <div class="setup-card setup-card-wide">
+        <div class="setup-steps">
+            <div class="step done">1</div>
+            <div class="step done">2</div>
+            <div class="step active">3</div>
+        </div>
+        <h1 class="setup-title">Çalışanlar</h1>
+        <p class="setup-subtitle">İşletmenizde çalışacak kişileri ekleyin</p>
+
+        <div id="employeesList" class="dynamic-list"></div>
+
+        <button class="btn btn-secondary" onclick="addEmployee()">+ Çalışan Ekle</button>
+
+        <div class="setup-actions">
+            <button class="btn btn-ghost" onclick="location.href='/setup/step2'">← Geri</button>
+            <button class="btn btn-primary" onclick="finish()">✓ Kurumu Oluştur</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const list = document.getElementById('employeesList');
+
+function addEmployee() {
+    const div = document.createElement('div');
+    div.className = 'dynamic-item';
+    div.innerHTML = `
+        <input type="text" class="input emp-name" placeholder="Ad Soyad">
+        <input type="text" class="input emp-phone" placeholder="Telefon (05xx...)">
+        <button class="icon-btn danger" onclick="this.parentElement.remove()">×</button>
+    `;
+    list.appendChild(div);
+}
+
+async function finish() {
+    const items = [...document.querySelectorAll('.dynamic-item')];
+    const employees = items.map(i => ({
+        name: i.querySelector('.emp-name').value.trim(),
+        phone: i.querySelector('.emp-phone').value.trim()
+    })).filter(e => e.name && e.phone);
+
+    if (employees.length === 0) { alert('En az bir çalışan ekleyin'); return; }
+
+    const res = await fetch('/setup/step3', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({employees})
+    });
+    const data = await res.json();
+    if (data.success) window.location.href = data.redirect;
+    else alert(data.message);
+}
+
+addEmployee();
+</script>
+{% endblock %}

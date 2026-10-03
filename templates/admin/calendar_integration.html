@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Takvim Entegrasyonu{% endblock %}
+{% block body %}
+<div class="app-layout">
+    {% include 'admin/_sidebar.html' %}
+    <main class="app-content">
+        <div class="page-header">
+            <h1>Takvim Entegrasyonu</h1>
+        </div>
+
+        <div class="card">
+            <p class="muted">
+                Aşağıda bilgileri girerek harici takvimlerinizi (Google, iCloud, Outlook) sisteme bağlayabilirsiniz.
+                Randevuları <b>.ics</b> formatında dışa aktararak da manuel olarak ekleyebilirsiniz.
+            </p>
+
+            <div class="form-group">
+                <label>Sağlayıcı</label>
+                <select id="provider" class="input">
+                    <option value="google">Google Takvim</option>
+                    <option value="icloud">iCloud Takvim</option>
+                    <option value="outlook">Outlook Takvim</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>E-posta</label>
+                <input type="email" id="calEmail" class="input" placeholder="ornek@gmail.com">
+            </div>
+
+            <div class="form-group">
+                <label>Takvim URL (opsiyonel)</label>
+                <input type="text" id="calUrl" class="input" placeholder="https://calendar.google.com/...">
+            </div>
+
+            <button class="btn btn-primary" onclick="addIntegration()">+ Entegrasyon Ekle</button>
+        </div>
+
+        <div class="card">
+            <h3>Mevcut Entegrasyonlar</h3>
+            {% if integrations %}
+            <table class="table">
+                <thead>
+                    <tr><th>Sağlayıcı</th><th>E-posta</th><th>URL</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for i in integrations %}
+                    <tr>
+                        <td>{{ i.provider }}</td>
+                        <td>{{ i.email }}</td>
+                        <td class="muted">{{ i.calendar_url or '-' }}</td>
+                        <td><button class="btn btn-sm danger" onclick="deleteIntegration({{ i.id }})">Sil</button></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="muted">Henüz entegrasyon eklenmemiş.</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h3>Nasıl Kullanılır?</h3>
+            <ol class="help-list">
+                <li>Yeni bir randevu oluşturduğunuzda size <b>.ics</b> dosyası sunulur.</li>
+                <li>Bu dosyayı Google Takvim, iCloud veya Outlook'a sürükleyip bırakabilirsiniz.</li>
+                <li>Randevular otomatik olarak seçili takvimlere eklenir.</li>
+            </ol>
+        </div>
+    </main>
+</div>
+
+<script>
+async function addIntegration() {
+    const payload = {
+        provider: document.getElementById('provider').value,
+        email: document.getElementById('calEmail').value,
+        calendar_url: document.getElementById('calUrl').value
+    };
+    if (!payload.email) { alert('E-posta gerekli'); return; }
+    const res = await fetch('/admin/calendar-integration/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) location.reload();
+}
+
+async function deleteIntegration(id) {
+    if (!confirm('Silmek istediğinize emin misiniz?')) return;
+    await fetch(`/admin/calendar-integration/${id}`, {method: 'DELETE'});
+    location.reload();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Yönetim Paneli{% endblock %}
+{% block body %}
+<div class="app-layout">
+    {% include 'admin/_sidebar.html' %}
+    <main class="app-content">
+        <h1>Hoş Geldiniz</h1>
+        <p class="muted">{{ business.name }}</p>
+    </main>
+</div>
+{% endblock %}

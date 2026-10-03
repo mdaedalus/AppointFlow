@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Takvim{% endblock %}
+{% block body %}
+<div class="app-layout">
+    {% include 'admin/_sidebar.html' %}
+    <main class="app-content">
+        <div class="page-header">
+            <h1>Takvim</h1>
+            <div class="view-switch">
+                <button id="btnCal" class="btn btn-sm active" onclick="switchView('calendar')">📅 Takvim</button>
+                <button id="btnList" class="btn btn-sm" onclick="switchView('list')">📋 Liste</button>
+            </div>
+        </div>
+
+        <div id="calendarView" class="card">
+            <div id="calendar"></div>
+        </div>
+
+        <div id="listView" class="card hidden">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Müşteri</th>
+                        <th>İşlem</th>
+                        <th>Personel</th>
+                        <th>Durum</th>
+                        <th style="width:280px">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody id="apptListBody"></tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- Randevu Detay Modal -->
+<div id="detailModal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="detailTitle">Randevu Detayı</h3>
+        <div id="detailBody"></div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="document.getElementById('detailModal').classList.add('hidden')">Kapat</button>
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+<script>
+let calendar;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const calEl = document.getElementById('calendar');
+    calendar = new FullCalendar.Calendar(calEl, {
+        initialView: 'dayGridMonth',
+        locale: 'tr',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        events: '/calendar/events',
+        eventClick: (info) => showDetail(info.event.id),
+        eventTimeFormat: {hour: '2-digit', minute: '2-digit', hour12: false}
+    });
+    calendar.render();
+    loadList();
+});
+
+function switchView(v) {
+    document.getElementById('calendarView').classList.toggle('hidden', v !== 'calendar');
+    document.getElementById('listView').classList.toggle('hidden', v !== 'list');
+    document.getElementById('btnCal').classList.toggle('active', v === 'calendar');
+    document.getElementById('btnList').classList.toggle('active', v === 'list');
+    if (v === 'list') loadList();
+}
+
+async function loadList() {
+    const res = await fetch('/appointment/list');
+    const data = await res.json();
+    const tbody = document.getElementById('apptListBody');
+    tbody.innerHTML = '';
+
+    if (data.appointments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="muted center">Randevu yok</td></tr>';
+        return;
+    }
+
+    data.appointments.forEach(a => {
+        const date = new Date(a.appointment_date);
+        const statusMap = {
+            pending: {text: 'Bekliyor', cls: 'badge-warning'},
+            arrived: {text: 'Geldi', cls: 'badge-success'},
+            no_show: {text: 'Gelmedi', cls: 'badge-danger'}
+        };
+        const s = statusMap[a.status] || statusMap.pending;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${date.toLocaleString('tr-TR')}</td>
+            <td>${a.customer_name}</td>
+            <td>${a.services.join(', ')}</td>
+            <td>${a.employees.join(', ')}</td>
+            <td><span class="badge ${s.cls}">${s.text}</span></td>
+            <td>
+                <button class="btn btn-sm success" onclick="setStatus(${a.id}, 'arrived')">Geldi</button>
+                <button class="btn btn-sm danger" onclick="setStatus(${a.id}, 'no_show')">Gelmedi</button>
+                <button class="btn btn-sm" onclick="showDetail(${a.id})">Detay</button>
+                <button class="btn btn-sm danger" onclick="deleteAppt(${a.id})">Sil</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function setStatus(id, status) {
+    await fetch(`/appointment/${id}/status`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status})
+    });
+    if (calendar) calendar.refetchEvents();
+    loadList();
+}
+
+async function deleteAppt(id) {
+    if (!confirm('Randevuyu silmek istediğinize emin misiniz?')) return;
+    await fetch(`/appointment/${id}`, {method: 'DELETE'});
+    if (calendar) calendar.refetchEvents();
+    loadList();
+}
+
+async function showDetail(id) {
+    const res = await fetch(`/appointment/${id}`);
+    const a = await res.json();
+    const date = new Date(a.appointment_date);
+    document.getElementById('detailTitle').textContent = a.customer_name;
+    document.getElementById('detailBody').innerHTML = `
+        <p><b>Telefon:</b> ${a.customer_phone}</p>
+        <p><b>Tarih:</b> ${date.toLocaleString('tr-TR')}</p>
+        <p><b>Ücret:</b> ${a.total_price} ₺</p>
+        <p><b>Açıklama:</b> ${a.description || '-'}</p>
+        <div class="modal-actions">
+            <a class="btn btn-sm success" href="https://wa.me/${a.customer_phone.replace(/\\D/g,'').replace(/^0/,'90')}?text=${encodeURIComponent('Merhaba, randevunuz hakkında bilgilendirme.')}" target="_blank">💬 WhatsApp</a>
+            <a class="btn btn-sm" href="/appointment/${a.id}/ics" download>📅 .ics</a>
+        </div>
+    `;
+    document.getElementById('detailModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

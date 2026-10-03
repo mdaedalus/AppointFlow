@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}İşlemler - Adım 2{% endblock %}
+{% block body %}
+<div class="setup-container">
+    <div class="setup-card setup-card-wide">
+        <div class="setup-steps">
+            <div class="step done">1</div>
+            <div class="step active">2</div>
+            <div class="step">3</div>
+        </div>
+        <h1 class="setup-title">İşlemler / Hizmetler</h1>
+        <p class="setup-subtitle">İşletmenizde yapılacak işlemleri ekleyin</p>
+
+        <label class="checkbox-line">
+            <input type="checkbox" id="hasPricing">
+            <span>İşlem ücreti eklemek istiyorum</span>
+        </label>
+
+        <div id="servicesList" class="dynamic-list"></div>
+
+        <button class="btn btn-secondary" onclick="addService()">+ İşlem Ekle</button>
+
+        <div class="setup-actions">
+            <button class="btn btn-ghost" onclick="location.href='/setup/step1'">← Geri</button>
+            <button class="btn btn-primary" onclick="goStep3()">Devam →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const list = document.getElementById('servicesList');
+const pricing = document.getElementById('hasPricing');
+
+function addService() {
+    const div = document.createElement('div');
+    div.className = 'dynamic-item';
+    div.innerHTML = `
+        <input type="text" class="input service-name" placeholder="İşlem adı">
+        <input type="number" class="input service-price" placeholder="Ücret (₺)" style="display:${pricing.checked ? 'block' : 'none'}">
+        <input type="number" class="input service-duration" placeholder="Süre (dk)" value="30">
+        <button class="icon-btn danger" onclick="this.parentElement.remove()">×</button>
+    `;
+    list.appendChild(div);
+}
+
+pricing.addEventListener('change', () => {
+    document.querySelectorAll('.service-price').forEach(el => {
+        el.style.display = pricing.checked ? 'block' : 'none';
+    });
+});
+
+async function goStep3() {
+    const items = [...document.querySelectorAll('.dynamic-item')];
+    const services = items.map(i => ({
+        name: i.querySelector('.service-name').value.trim(),
+        price: i.querySelector('.service-price').value,
+        duration: i.querySelector('.service-duration').value
+    })).filter(s => s.name);
+
+    if (services.length === 0) { alert('En az bir işlem ekleyin'); return; }
+
+    const res = await fetch('/setup/step2', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({services, has_pricing: pricing.checked})
+    });
+    const data = await res.json();
+    if (data.success) window.location.href = '/setup/step3';
+}
+
+addService();
+</script>
+{% endblock %}

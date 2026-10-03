@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Çalışan Paneli{% endblock %}
+{% block body %}
+<div class="setup-container">
+    <div class="setup-card setup-card-wide">
+        <h1>👋 Merhaba</h1>
+        <p class="muted">{{ business.name }} çalışan paneli</p>
+
+        <h3 style="margin-top:32px">Çalışanlar</h3>
+        <ul class="list-simple">
+            {% for e in employees %}
+            <li>{{ e.name }} - {{ e.phone }}</li>
+            {% endfor %}
+        </ul>
+
+        <p class="muted" style="margin-top:24px">
+            Çalışan paneli genişletilebilir. Şu an sadece bilgilendirme amaçlıdır.
+        </p>
+    </div>
+</div>
+{% endblock %}

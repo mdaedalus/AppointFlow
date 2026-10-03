@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}İşletme Oluştur - Adım 1{% endblock %}
+{% block body %}
+<div class="setup-container">
+    <div class="setup-card">
+        <div class="setup-steps">
+            <div class="step active">1</div>
+            <div class="step">2</div>
+            <div class="step">3</div>
+        </div>
+        <h1 class="setup-title">İşletme Oluştur</h1>
+        <p class="setup-subtitle">İşletmenizin adını girin</p>
+
+        <div class="form-group">
+            <label>İşletme Adı</label>
+            <input type="text" id="businessName" class="input" placeholder="Örn: Kuaför Ahmet" autofocus>
+        </div>
+
+        <button class="btn btn-primary btn-block" onclick="goStep2()">
+            İleri →
+        </button>
+    </div>
+</div>
+
+<script>
+async function goStep2() {
+    const name = document.getElementById('businessName').value.trim();
+    if (!name) { alert('İşletme adı gerekli'); return; }
+    const res = await fetch('/setup/step1', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name})
+    });
+    const data = await res.json();
+    if (data.success) window.location.href = '/setup/step2';
+}
+document.getElementById('businessName').addEventListener('keypress', e => {
+    if (e.key === 'Enter') goStep2();
+});
+</script>
+{% endblock %}
